@@ -109,6 +109,7 @@ func get_config() *tls.Config {
 	engine := os.Getenv("ENGINE")
 	pin := os.Getenv("PIN")
 	key_label := []byte(os.Getenv("KEYLABEL"))
+	cert_path := os.Getenv("CERT_PATH")
 	ctx, err := crypto11.Configure(&crypto11.Config{
 		SlotNumber: &slot,
 		Pin:        pin,
@@ -120,21 +121,13 @@ func get_config() *tls.Config {
 	// defer ctx.Close()
 
 	kp, _ := ctx.FindKeyPair(nil, key_label)
-	crt, err := ctx.FindCertificate(nil, []byte("mycert"), nil)
-	if err != nil {
-		log.Fatal("Could not search for certificates: ", err)
-	}
-
-	if crt == nil {
-		log.Fatal("No certificate found. Perhaps wrong -cert-label ?")
-	} else {
-		log.Printf("Certificate Serial: %x Subject: %s", crt.SerialNumber, crt.Subject)
-	}
-
+	b, _ := ioutil.ReadFile(cert_path)
+	block, _ := pem.Decode(b)
+	cert, _ := x509.ParseCertificate(block.Bytes)
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{
 			{
-				Certificate: [][]byte{crt.Raw},
+				Certificate: [][]byte{cert.Raw},
 				PrivateKey:  kp,
 			},
 		},

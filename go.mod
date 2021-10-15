@@ -5,6 +5,7 @@ go 1.14
 replace github.com/urfave/cli/v2 => github.com/mendersoftware/cli/v2 v2.1.1-minimal
 
 require (
+	github.com/ThalesIgnite/crypto11 v1.2.5
 	github.com/creack/pty v1.1.11
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gorilla/websocket v1.4.2

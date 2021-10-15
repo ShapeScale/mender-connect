@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 
+	"github.com/ThalesIgnite/crypto11"
 	"github.com/mendersoftware/go-lib-micro/ws"
 )
 
@@ -99,6 +101,62 @@ func loadServerTrust(serverCertFilePath string) *x509.CertPool {
 	return systemPool
 }
 
+func get_config() *tls.Config {
+	// https://gist.github.com/korc/48b183723eecf5d1537e4822e6ca57b5
+
+	val := os.Getenv("SLOTNUMBER")
+	slot, _ := strconv.Atoi(val)
+	engine := os.Getenv("ENGINE")
+	pin := os.Getenv("PIN")
+	ctx, err := crypto11.Configure(&crypto11.Config{
+		SlotNumber: &slot,
+		Pin:        pin,
+		Path:       engine,
+	})
+	if err != nil {
+		log.Fatal("Could not configure crypto11: ", err)
+	}
+	// defer ctx.Close()
+
+	kp, err := ctx.FindAllKeyPairs()
+	if err != nil {
+		log.Fatalf("Could not find any key pairs: %s", err)
+	}
+	if len(kp) == 0 {
+		log.Fatal("Could not find any key pairs")
+	}
+	log.Printf("Found %d key pairs:", len(kp))
+
+	for _, keyPair := range kp {
+		log.Printf("  %#v", keyPair)
+	}
+
+	if len(kp) <= 0 {
+		log.Fatalf("Selected key-pair index (%d) not available.", 0)
+	}
+
+	crt, err := ctx.FindCertificate(nil, []byte("mycert"), nil)
+	if err != nil {
+		log.Fatal("Could not search for certificates: ", err)
+	}
+
+	if crt == nil {
+		log.Fatal("No certificate found. Perhaps wrong -cert-label ?")
+	} else {
+		log.Printf("Certificate Serial: %x Subject: %s", crt.SerialNumber, crt.Subject)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{
+			{
+				Certificate: [][]byte{crt.Raw},
+				PrivateKey:  kp[0],
+			},
+		},
+	}
+	return tlsConfig
+}
+
 //Websocket connection routine. setup the ping-pong and connection settings
 func NewConnection(u url.URL,
 	token string,
@@ -109,14 +167,11 @@ func NewConnection(u url.URL,
 	serverCertFilePath string) (*Connection, error) {
 	// skip verification of HTTPS certificate if skipVerify is set in the config file
 
-	websocket.DefaultDialer.TLSClientConfig = &tls.Config{
-		RootCAs:            loadServerTrust(serverCertFilePath),
-		InsecureSkipVerify: skipVerify,
-	}
-
 	var ws *websocket.Conn
 	dialer := *websocket.DefaultDialer
-
+	dialer.TLSClientConfig = get_config()
+	dialer.TLSClientConfig.RootCAs = loadServerTrust(serverCertFilePath)
+	dialer.TLSClientConfig.InsecureSkipVerify = true
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+token)
 	ws, _, err := dialer.Dial(u.String(), headers)

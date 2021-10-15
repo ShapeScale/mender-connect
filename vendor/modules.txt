@@ -1,3 +1,6 @@
+# github.com/ThalesIgnite/crypto11 v1.2.5
+## explicit
+github.com/ThalesIgnite/crypto11
 # github.com/creack/pty v1.1.11
 ## explicit
 github.com/creack/pty
@@ -16,6 +19,8 @@ github.com/mendersoftware/go-lib-micro/ws/filetransfer
 github.com/mendersoftware/go-lib-micro/ws/menderclient
 github.com/mendersoftware/go-lib-micro/ws/portforward
 github.com/mendersoftware/go-lib-micro/ws/shell
+# github.com/miekg/pkcs11 v1.0.3-0.20190429190417-a667d056470f
+github.com/miekg/pkcs11
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -33,6 +38,8 @@ github.com/stretchr/objx
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
+# github.com/thales-e-security/pool v0.0.2
+github.com/thales-e-security/pool
 # github.com/urfave/cli/v2 v2.2.0 => github.com/mendersoftware/cli/v2 v2.1.1-minimal
 ## explicit
 github.com/urfave/cli/v2

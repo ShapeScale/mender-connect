@@ -108,33 +108,18 @@ func get_config() *tls.Config {
 	slot, _ := strconv.Atoi(val)
 	engine := os.Getenv("ENGINE")
 	pin := os.Getenv("PIN")
+	key_label := []byte(os.Getenv("KEYLABEL"))
 	ctx, err := crypto11.Configure(&crypto11.Config{
 		SlotNumber: &slot,
 		Pin:        pin,
-		Path:       engine,
+		Path: engine,
 	})
 	if err != nil {
 		log.Fatal("Could not configure crypto11: ", err)
 	}
 	// defer ctx.Close()
 
-	kp, err := ctx.FindAllKeyPairs()
-	if err != nil {
-		log.Fatalf("Could not find any key pairs: %s", err)
-	}
-	if len(kp) == 0 {
-		log.Fatal("Could not find any key pairs")
-	}
-	log.Printf("Found %d key pairs:", len(kp))
-
-	for _, keyPair := range kp {
-		log.Printf("  %#v", keyPair)
-	}
-
-	if len(kp) <= 0 {
-		log.Fatalf("Selected key-pair index (%d) not available.", 0)
-	}
-
+	kp, _ := ctx.FindKeyPair(nil, key_label)
 	crt, err := ctx.FindCertificate(nil, []byte("mycert"), nil)
 	if err != nil {
 		log.Fatal("Could not search for certificates: ", err)
@@ -150,7 +135,7 @@ func get_config() *tls.Config {
 		Certificates: []tls.Certificate{
 			{
 				Certificate: [][]byte{crt.Raw},
-				PrivateKey:  kp[0],
+				PrivateKey:  kp,
 			},
 		},
 	}

@@ -100,14 +100,12 @@ func loadServerTrust(serverCertFilePath string) *x509.CertPool {
 	}
 	return systemPool
 }
-
 func get_config() *tls.Config {
 	// https://gist.github.com/korc/48b183723eecf5d1537e4822e6ca57b5
 
 	label := os.Getenv("SLOTLABEL")
 	engine := os.Getenv("ENGINE")
 	pin := os.Getenv("PIN")
-	key_label := []byte(os.Getenv("KEYLABEL"))
 	cert_path := os.Getenv("CERTPATH")
 	ctx, err := crypto11.Configure(&crypto11.Config{
 		TokenLabel: label,
@@ -118,7 +116,7 @@ func get_config() *tls.Config {
 		log.Fatal("Could not configure crypto11: ", err)
 	}
 	
-	kp, err := ctx.FindKeyPair(nil, key_label)
+	kp, err := ctx.FindAllKeyPairs()
 	if err != nil {
 		log.Fatal("Could not find keypair: ", err)
 	}
@@ -136,7 +134,7 @@ func get_config() *tls.Config {
 		Certificates: []tls.Certificate{
 			{
 				Certificate: [][]byte{cert.Raw},
-				PrivateKey:  kp,
+				PrivateKey:  kp[0],
 			},
 		},
 	}

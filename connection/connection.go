@@ -118,12 +118,21 @@ func get_config() *tls.Config {
 	if err != nil {
 		log.Fatal("Could not configure crypto11: ", err)
 	}
-	// defer ctx.Close()
+	
+	kp, err := ctx.FindKeyPair(nil, key_label)
+	if err != nil {
+		log.Fatal("Could not find keypair: ", err)
+	}
 
-	kp, _ := ctx.FindKeyPair(nil, key_label)
-	b, _ := ioutil.ReadFile(cert_path)
+	b, err := ioutil.ReadFile(cert_path)
+	if err != nil {
+		log.Fatal("Could not read certificate: ", err)
+	}
 	block, _ := pem.Decode(b)
-	cert, _ := x509.ParseCertificate(block.Bytes)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		log.Fatal("Could not parse certificate ", err)
+	}
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{
 			{
@@ -134,6 +143,7 @@ func get_config() *tls.Config {
 	}
 	return tlsConfig
 }
+
 
 //Websocket connection routine. setup the ping-pong and connection settings
 func NewConnection(u url.URL,

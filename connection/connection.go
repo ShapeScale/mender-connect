@@ -104,14 +104,13 @@ func loadServerTrust(serverCertFilePath string) *x509.CertPool {
 func get_config() *tls.Config {
 	// https://gist.github.com/korc/48b183723eecf5d1537e4822e6ca57b5
 
-	val := os.Getenv("SLOTNUMBER")
-	slot, _ := strconv.Atoi(val)
+	label := os.Getenv("SLOTLABEL")
 	engine := os.Getenv("ENGINE")
 	pin := os.Getenv("PIN")
 	key_label := []byte(os.Getenv("KEYLABEL"))
-	cert_path := os.Getenv("CERT_PATH")
+	cert_path := os.Getenv("CERTPATH")
 	ctx, err := crypto11.Configure(&crypto11.Config{
-		SlotNumber: &slot,
+		TokenLabel: label,
 		Pin:        pin,
 		Path: engine,
 	})
@@ -143,6 +142,7 @@ func get_config() *tls.Config {
 	}
 	return tlsConfig
 }
+
 
 
 //Websocket connection routine. setup the ping-pong and connection settings

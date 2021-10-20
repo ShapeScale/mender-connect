@@ -17,6 +17,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"os"
+	"github.com/mendersoftware/openssl"
 )
 
 // ErrBadHandshake is returned when the server response to opening handshake is
@@ -124,6 +126,56 @@ func hostPortNoPort(u *url.URL) (hostPort, hostNoPort string) {
 		}
 	}
 	return hostPort, hostNoPort
+}
+
+func loadClientTrust(ctx *openssl.Ctx) (*openssl.Ctx, error) {
+
+	
+	cert_path := os.Getenv("CERTPATH")
+	certBytes, err := ioutil.ReadFile(cert_path)
+	if err != nil {
+		println("Failed to read the certificate file for the HttpsClient")
+	}
+
+	certs := openssl.SplitPEM(certBytes)
+	if len(certs) == 0 {
+		println("No PEM certificate found in '%s'", certs)
+	}
+	first, certs := certs[0], certs[1:]
+	cert, err := openssl.LoadCertificateFromPEM(first)
+	if err != nil {
+		return ctx, err
+	}
+
+	err = ctx.UseCertificate(cert)
+	if err != nil {
+		return ctx, err
+	}
+
+	for _, pem := range certs {
+		cert, err := openssl.LoadCertificateFromPEM(pem)
+		if err != nil {
+			return ctx, err
+		}
+		err = ctx.AddChainCertificate(cert)
+		if err != nil {
+			return ctx, err
+		}
+	}
+
+	if err != nil {
+		return ctx, err
+	}
+	
+	pkcs11_uri := os.Getenv("PKCS11URI")
+	engine, err := openssl.EngineById("pkcs11")
+	key, err := openssl.EngineLoadPrivateKey(engine, pkcs11_uri)
+	err = ctx.UsePrivateKey(key)
+	if err != nil {
+		return ctx, err
+	}
+
+	return ctx, nil
 }
 
 // DefaultDialer is a dialer with all fields set to the default values.
@@ -282,47 +334,56 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		}
 	}
 
-	hostPort, hostNoPort := hostPortNoPort(u)
+	hostPort, _ := hostPortNoPort(u)
 	trace := httptrace.ContextClientTrace(ctx)
 	if trace != nil && trace.GetConn != nil {
 		trace.GetConn(hostPort)
 	}
 
-	netConn, err := netDial("tcp", hostPort)
-	if trace != nil && trace.GotConn != nil {
-		trace.GotConn(httptrace.GotConnInfo{
-			Conn: netConn,
-		})
-	}
+	// netConn, err := netDial("tcp", hostPort)
+	// if trace != nil && trace.GotConn != nil {
+	// 	trace.GotConn(httptrace.GotConnInfo{
+	// 		Conn: netConn,
+	// 	})
+	// }
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+
+	// defer func() {
+	// 	if netConn != nil {
+	// 		netConn.Close()
+	// 	}
+	// }()
+
+	// if u.Scheme == "https" {
+	// 	cfg := cloneTLSConfig(d.TLSClientConfig)
+	// 	if cfg.ServerName == "" {
+	// 		cfg.ServerName = hostNoPort
+	// 	}
+	// 	tlsConn := tls.Client(netConn, cfg)
+	// 	netConn = tlsConn
+
+	// 	var err error
+	// 	if trace != nil {
+	// 		err = doHandshakeWithTrace(trace, tlsConn, cfg)
+	// 	} else {
+	// 		err = doHandshake(tlsConn, cfg)
+	// 	}
+
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// }
+
+	// Do I DialTLS here? dialOpenSSL returns net.Conn
+	flags := openssl.DialFlags(0)
+	openssl_ctx, err := openssl.NewCtx()
 	if err != nil {
-		return nil, nil, err
+		println("openssl.NewCtx()")
 	}
-
-	defer func() {
-		if netConn != nil {
-			netConn.Close()
-		}
-	}()
-
-	if u.Scheme == "https" {
-		cfg := cloneTLSConfig(d.TLSClientConfig)
-		if cfg.ServerName == "" {
-			cfg.ServerName = hostNoPort
-		}
-		tlsConn := tls.Client(netConn, cfg)
-		netConn = tlsConn
-
-		var err error
-		if trace != nil {
-			err = doHandshakeWithTrace(trace, tlsConn, cfg)
-		} else {
-			err = doHandshake(tlsConn, cfg)
-		}
-
-		if err != nil {
-			return nil, nil, err
-		}
-	}
+	openssl_ctx, err = loadClientTrust(openssl_ctx)
+	netConn, err := openssl.Dial("tcp", hostPort, openssl_ctx, flags)
 
 	conn := newConn(netConn, false, d.ReadBufferSize, d.WriteBufferSize, d.WriteBufferPool, nil, nil)
 
@@ -373,7 +434,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		conn.newDecompressionReader = decompressNoContextTakeover
 		break
 	}
-
+	
 	resp.Body = ioutil.NopCloser(bytes.NewReader([]byte{}))
 	conn.subprotocol = resp.Header.Get("Sec-Websocket-Protocol")
 
@@ -384,10 +445,12 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 
 func doHandshake(tlsConn *tls.Conn, cfg *tls.Config) error {
 	if err := tlsConn.Handshake(); err != nil {
+		
 		return err
 	}
 	if !cfg.InsecureSkipVerify {
 		if err := tlsConn.VerifyHostname(cfg.ServerName); err != nil {
+			println("Handshake err", err)
 			return err
 		}
 	}

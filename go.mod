@@ -9,6 +9,7 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/mendersoftware/go-lib-micro v0.0.0-20210407130414-8df169b86c91
+	github.com/mendersoftware/openssl v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.8.1
